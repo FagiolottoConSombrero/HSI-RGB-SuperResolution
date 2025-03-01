@@ -7,7 +7,7 @@ import cv2
 
 
 if __name__ == '__main__':
-    # 📁 Percorsi delle cartelle
+    # Percorsi delle cartelle
     input_folder = "/home/ubuntu/Flowers/flowers_hsi/"  # HSI originale (HR)
     output_folder_LR = "/home/ubuntu/Flowers/flowers_hsi_LR/"  # HSI ridotto
     output_folder_upsampled = "/home/ubuntu/Flowers/flowers_hsi_upsampled/"  # HSI riportato a HR
@@ -18,8 +18,15 @@ if __name__ == '__main__':
     os.makedirs(output_folder_upsampled, exist_ok=True)
     os.makedirs(output_folder_rgb, exist_ok=True)
 
-    # 📊 Carica le curve di sensibilità della Nikon D700 (3x31)
-    srf = np.load("NikonD700_spectral_curves.npy")
+    # Carica le curve di sensibilità della Nikon D700 (3x31)
+    srf = np.array([
+        [0.005, 0.007, 0.012, 0.015, 0.023, 0.025, 0.030, 0.026, 0.024, 0.019, 0.010, 0.004, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+        [0.000, 0.000, 0.000, 0.000, 0.000, 0.001, 0.002, 0.003, 0.005, 0.007, 0.012, 0.013, 0.015, 0.016, 0.017, 0.02,
+         0.013, 0.011, 0.009, 0.005, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.001, 0.002, 0.002, 0.003],
+        [0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000, 0.000,
+         0.001, 0.003, 0.010, 0.012, 0.013, 0.022, 0.020, 0.020, 0.018, 0.017, 0.016, 0.016, 0.014, 0.014, 0.013]
+    ])
 
     # 🔍 Ottieni la lista delle immagini HSI nella cartella di input
     image_files = [f for f in os.listdir(input_folder) if f.lower().endswith('.tiff') and not f.startswith("._")]
