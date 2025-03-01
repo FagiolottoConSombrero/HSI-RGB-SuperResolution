@@ -25,6 +25,7 @@ if __name__ == '__main__':
 
     # Processa ogni immagine
     for image_file in image_files:
+        print(image_file)
         # Carica l'immagine
         img_path = os.path.join(input_folder, image_file)
         img = Image.open(img_path).convert('RGB')  # Carica immagine e converte in RGB
