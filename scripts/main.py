@@ -32,7 +32,7 @@ if __name__ == '__main__':
     image_files = [f for f in os.listdir(input_folder) if f.lower().endswith('.tiff') and not f.startswith("._")]
 
     # 🎯 Parametri del filtro Gaussiano per la riduzione
-    kernel_size = (8, 8)  # µ = 8
+    kernel_size = (9, 9)  # µ = 8
     sigma = 3  # σ = 3
 
     # 🚀 Processa ogni immagine
