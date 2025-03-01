@@ -47,7 +47,7 @@ if __name__ == '__main__':
         hsi_blurred = np.zeros_like(hsi)
         for i in range(hsi.shape[2]):  # Applica il blur separatamente su ogni banda spettrale
             hsi_blurred[:, :, i] = cv2.GaussianBlur(hsi[:, :, i], kernel_size, sigma)
-
+        print(hsi.shape)
         # Downsampling bilineare x4
         hsi_LR = cv2.resize(hsi_blurred, (hsi.shape[1] // 4, hsi.shape[0] // 4), interpolation=cv2.INTER_LINEAR)
 
