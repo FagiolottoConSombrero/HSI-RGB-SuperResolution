@@ -63,13 +63,5 @@ class HSIEncoder(nn.Module):
         conv2 = self.downsample_layer(conv1)
         conv3 = self.downsample_layer(conv2)
         conv4 = self.downsample_layer(conv3)
-        return conv1, conv2, conv3, conv4
+        return [conv1, conv2, conv3, conv4]
 
-
-im = torch.rand(1, 31, 512, 512)
-encoder = HSIEncoder()
-conv1, conv2, conv3, conv4 = encoder(im)
-print(conv1.shape)
-print(conv2.shape)
-print(conv3.shape)
-print(conv4.shape)

@@ -1,132 +1,225 @@
 import torch.nn as nn
-import torch.nn.functional as F
 import torch
-from correlation import ModuleCorrelation
+import torch.nn.functional as F
 
 
-def backwarp(input, flow):
-    B, _, H, W = input.shape
+class Warp(nn.Module):
+    def __init__(self, **kwargs):
+        super(Warp, self).__init__()
+        self.kwargs = kwargs
 
-    hor = torch.linspace(-1.0 + (1.0 / W), 1.0 - (1.0 / W), W)
-    hor = hor.view(1, 1, 1, -1).expand(-1, -1, H, -1)
-    ver = torch.linspace(-1.0 + (1.0 / H), 1.0 - (1.0 / H), H)
-    ver = ver.view(1, 1, -1, 1).expand(-1, -1, -1, W)
-    grid = torch.cat([hor, ver], 1)
+    def forward(self, x, flow):
+        """
+        Warp an image/tensor (im2) back to im1, according to the optical flow.
+        x: [B, C, H, W] (im2)
+        flow: [B, 2, H, W] optical flow
+        kwargs: additional keyword arguments for grid_sample
+        """
+        B, C, H, W = x.size()
+        # Creazione della mesh grid
+        xx = torch.arange(0, W).view(1, -1).repeat(H, 1)
+        yy = torch.arange(0, H).view(-1, 1).repeat(1, W)
+        xx = xx.view(1, 1, H, W).repeat(B, 1, 1, 1)
+        yy = yy.view(1, 1, H, W).repeat(B, 1, 1, 1)
+        grid = torch.cat((xx, yy), 1).float()
 
-    if input.is_cuda:
-        grid = grid.cuda()
+        if x.is_cuda:
+            grid = grid.cuda()
+        vgrid = grid + flow
 
-    flow = torch.cat([flow[:, 0:1, :, :] / ((W - 1.0) / 2.0),
-                      flow[:, 1:2, :, :] / ((H - 1.0) / 2.0)], 1)
+        # Scala la grid a [-1,1]
+        vgrid[:, 0, :, :] = 2.0 * vgrid[:, 0, :, :].clone() / max(W - 1, 1) - 1.0
+        vgrid[:, 1, :, :] = 2.0 * vgrid[:, 1, :, :].clone() / max(H - 1, 1) - 1.0
 
-    vgrid = grid + flow
-    vgrid = vgrid.permute(0, 2, 3, 1)
+        vgrid = vgrid.permute(0, 2, 3, 1)
 
-    input = torch.cat([input, flow.new_ones([B, 1, H, W])], 1)
+        # Se align_corners non è specificato, lo settiamo a False
+        if 'align_corners' not in self.kwargs:
+            self.kwargs['align_corners'] = False
 
-    output = F.grid_sample(input=input, grid=vgrid, mode='bilinear', padding_mode='border', align_corners=False)
-
-    mask = output[:, -1:, :, :]
-    mask[mask > 0.999] = 1.0
-    mask[mask < 1.0] = 0.0
-
-    return output[:, :-1, :, :] * mask
+        output = F.grid_sample(x, vgrid, **self.kwargs)
+        return output
 
 
-class Extractor(nn.Module):
-    def __init__(self, in_ch=3, out_ch=16, kernel_size=3, stride=2, padding=1):
-        super(Extractor, self).__init__()
-
-        self.layer_one = self.conv_relu(in_ch, out_ch, kernel_size, stride, padding)
-        self.layer_two = self.conv_relu(out_ch, out_ch * 2, kernel_size, stride, padding)
-        self.layer_three = self.conv_relu(out_ch * 2, out_ch * 4, kernel_size, stride, padding)
-        self.layer_four = self.conv_relu(out_ch * 4, out_ch * 6, kernel_size, stride, padding)
-        self.layer_five = self.conv_relu(out_ch * 6, out_ch * 8, kernel_size, stride, padding)
-        self.layer_siz = self.conv_relu(out_ch * 8, out_ch * 12, kernel_size, stride, padding)
-
-    def conv_relu(self, in_channels, out_channels, kernel_size, stride, padding):
+def conv_activation(in_ch, out_ch, kernel_size=3, stride=1, padding=1, activation='relu', init_type='w_init_relu'):
+    if activation == 'relu':
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
-            nn.LeakyReLU(negative_slope=0.1),
-            nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, stride=1, padding=padding),
-            nn.LeakyReLU(negative_slope=0.1),
-            nn.Conv2d(out_channels, out_channels, kernel_size=kernel_size, stride=1, padding=padding),
-            nn.LeakyReLU(negative_slope=0.1))
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.ReLU(inplace=True))
 
-    def forward(self, x):
-        feat1 = self.layer_one(x)
-        feat2 = self.layer_two(feat1)
-        feat3 = self.layer_three(feat2)
-        feat4 = self.layer_four(feat3)
-        feat5 = self.layer_five(feat4)
-        feat6 = self.layer_siz(feat5)
-
-        return [feat1, feat2, feat3, feat4, feat5, feat6]
-
-
-class Decoder(nn.Module):
-    def __init__(self, intLevel):
-        super(Decoder, self).__init__()
-
-        # Definizione dei canali in ingresso per i diversi livelli
-        self.intPrevious = [None, None, 81 + 32 + 2 + 2, 81 + 64 + 2 + 2, 81 + 96 + 2 + 2, 81 + 128 + 2 + 2, 81, None][intLevel + 1]
-        self.intCurrent = [None, None, 81 + 32 + 2 + 2, 81 + 64 + 2 + 2, 81 + 96 + 2 + 2, 81 + 128 + 2 + 2, 81, None][intLevel]
-
-        self.leaky_relu = nn.LeakyReLU(negative_slope=0.1, inplace=True)  # Attivazione globale
-        self.correlation = ModuleCorrelation()  # Usa il modulo predefinito per la correlazione
-
-        if intLevel < 6:
-            self.netUpflow = nn.ConvTranspose2d(2, 2, kernel_size=4, stride=2, padding=1)
-            self.netUpfeat = nn.ConvTranspose2d(self.intPrevious + 128 + 128 + 96 + 64 + 32, 2, kernel_size=4, stride=2, padding=1)
-            self.fltBackwarp = [None, None, None, 5.0, 2.5, 1.25, 0.625, None][intLevel + 1]
-
-        # Creazione sequenziale dei blocchi convoluzionali
-        self.conv_blocks = nn.ModuleList([
-            self._conv_block(self.intCurrent, 128),
-            self._conv_block(self.intCurrent + 128, 128),
-            self._conv_block(self.intCurrent + 128 + 128, 96),
-            self._conv_block(self.intCurrent + 128 + 128 + 96, 64),
-            self._conv_block(self.intCurrent + 128 + 128 + 96 + 64, 32),
-            nn.Conv2d(self.intCurrent + 128 + 128 + 96 + 64 + 32, 2, kernel_size=3, stride=1, padding=1)
-        ])
-
-    def _conv_block(self, in_channels, out_channels):
-        """Helper function to create a Conv2D + LeakyReLU block"""
+    elif activation == 'leaky_relu':
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(negative_slope=0.1, inplace=True)
-        )
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True))
 
-    def forward(self, tenOne, tenTwo, objPrevious=None):
-        if objPrevious is None:
-            tenVolume = self.correlation(tenOne, tenTwo)  # Usa il modulo di correlazione
-            tenFeat = self.leaky_relu(tenVolume)  # Applico LeakyReLU direttamente
-            tenFlow = None
-        else:
-            tenFlow = self.netUpflow(objPrevious['tenFlow'])
-            tenFeat = self.netUpfeat(objPrevious['tenFeat'])
-            tenVolume = self.correlation(tenOne, backwarp(tenTwo, tenFlow * self.fltBackwarp))
-            tenFeat = torch.cat([self.leaky_relu(tenVolume), tenOne, tenFlow, tenFeat], dim=1)
+    elif activation == 'selu':
+        return nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.SELU(inplace=True))
 
-        # Passaggio attraverso i livelli convoluzionali
-        for conv_block in self.conv_blocks[:-1]:  # Tutti tranne l'ultimo layer
-            tenFeat = torch.cat([conv_block(tenFeat), tenFeat], dim=1)
-
-        tenFlow = self.conv_blocks[-1](tenFeat)  # Ultimo livello per ottenere il flow
-
-        return {'tenFlow': tenFlow, 'tenFeat': tenFeat}
+    elif activation == 'linear':
+        return nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding))
 
 
-im1 = torch.rand(3, 512, 512)
-im2 = torch.rand(3, 512, 512)
-encoder = Extractor()
-decoder = Decoder(3)
-features1 = encoder(im1)
-features2 = encoder(im2)
-estimate = decoder(features1[5], features2[5], None)
-estimate_2 = decoder(features1[4], features2[4], estimate)
-print(estimate.shape)
-print(estimate_2.shape)
+def flow(in_ch, out_ch, kernel_size=3, stride=1, padding=1, activation='linear', init_type='w_init'):
+    if activation == 'relu':
+        return nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.ReLU(inplace=True))
+
+    elif activation == 'leaky_relu':
+        return nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.LeakyReLU(negative_slope=0.1, inplace=True))
+
+    elif activation == 'selu':
+        return nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding),
+            nn.SELU(inplace=True))
+
+    elif activation == 'linear':
+        return nn.Sequential(
+            nn.Conv2d(in_ch, out_ch, kernel_size=kernel_size, stride=stride, padding=padding))
 
 
+def upsample(in_ch, out_ch):
+    return nn.ConvTranspose2d(in_ch, out_ch, kernel_size=4, stride=2, padding=1, bias=True)
 
+
+def leaky_deconv(in_ch, out_ch):
+    return nn.Sequential(
+        nn.ConvTranspose2d(in_ch, out_ch, kernel_size=4, stride=2, padding=1, bias=True),
+        nn.LeakyReLU(0.1, inplace=True)
+    )
+
+
+class FlowNet(nn.Module):
+    """ expect two input with the same number of channels, img1_LR, img2_HR"""
+
+    def __init__(self, in_ch=3):
+        """ in_ch: channel of one input, 3 for rgb, 1 for gray """
+        super(FlowNet, self).__init__()
+
+        activation = 'leaky_relu'
+        init_type = 'w_init_leaky'
+        reduced_model = False
+        in_ch *= 2
+
+        self.conv1 = conv_activation(in_ch, 64, kernel_size=7, stride=2, padding=3, activation=activation,
+                                     init_type=init_type)
+        self.conv2 = conv_activation(64, 128, kernel_size=5, stride=2, padding=2, activation=activation,
+                                     init_type=init_type)
+
+        self.conv3 = conv_activation(128, 256, kernel_size=5, stride=2, padding=2, activation=activation,
+                                     init_type=init_type)
+        self.conv3_1 = conv_activation(256, 256, kernel_size=3, stride=1, padding=1, activation=activation,
+                                       init_type=init_type)
+
+        self.conv4 = conv_activation(256, 512, kernel_size=3, stride=2, padding=1, activation=activation,
+                                     init_type=init_type)
+        self.conv4_1 = conv_activation(512, 512, kernel_size=3, stride=1, padding=1, activation=activation,
+                                       init_type=init_type)
+
+        self.conv5 = conv_activation(512, 512, kernel_size=3, stride=2, padding=1, activation=activation,
+                                     init_type=init_type)
+        self.conv5_1 = conv_activation(512, 512, kernel_size=3, stride=1, padding=1, activation=activation,
+                                       init_type=init_type)
+
+        self.conv6 = conv_activation(512, 1024, kernel_size=3, stride=2, padding=1, activation=activation,
+                                     init_type=init_type)
+        self.conv6_1 = conv_activation(1024, 1024, kernel_size=3, stride=1, padding=1, activation=activation,
+                                       init_type=init_type)
+
+        # refine unit
+        self.flow6 = flow(1024, 2)
+        self.flow6_up = upsample(2, 2)
+        self.deconv5 = leaky_deconv(1024, 256)
+
+        # in_ch = 512 + 256 + 2 = 770
+        self.flow5 = flow(770, 2)
+        self.flow5_up = upsample(2, 2)
+        self.deconv4 = leaky_deconv(770, 256)
+
+        # in_ch = 512 + 256 + 2 = 770
+        self.flow4 = flow(770, 2)
+        self.flow4_up = upsample(2, 2)
+        self.deconv3 = leaky_deconv(770, 128)
+
+        # in_ch = 256 + 128 + 2
+        self.flow3 = flow(386, 2)
+        self.flow3_up = upsample(2, 2)
+        self.deconv2 = leaky_deconv(386, 64)
+
+        # in_ch = 64 + 128 + 2 = 194
+        self.flow2 = flow(194, 2)
+        self.flow2_up = upsample(2, 2)
+        self.deconv1 = leaky_deconv(194, 64)
+
+        # in_ch = 64 + 64 + 2
+        self.flow1 = flow(130, 2)
+        self.flow1_up = upsample(2, 2)
+        self.deconv0 = leaky_deconv(130, 64)
+
+        # in_ch = 3 + 64 + 2 = 69
+        self.concat0_conv1 = conv_activation(69, 16, kernel_size=7, stride=1, padding=3, activation='selu',
+                                             init_type='w_init')
+        self.concat0_conv2 = conv_activation(16, 16, kernel_size=7, stride=1, padding=3, activation='selu',
+                                             init_type='w_init')
+        self.flow_12 = flow(16, 2)
+
+    def forward(self, input_img1_LR, input_img2_HR):
+        """ input1, input2: [B,C,H,W]
+        """
+
+        input_ = torch.cat((input_img1_LR, input_img2_HR), 1)
+        conv1 = self.conv1(input_)
+        conv2 = self.conv2(conv1)
+
+        conv3 = self.conv3(conv2)
+        conv3_1 = self.conv3_1(conv3)
+
+        conv4 = self.conv4(conv3_1)
+        conv4_1 = self.conv4_1(conv4)
+
+        conv5 = self.conv5(conv4_1)
+        conv5_1 = self.conv5_1(conv5)
+
+        conv6 = self.conv6(conv5_1)
+        conv6_1 = self.conv6_1(conv6)
+
+        flow6 = self.flow6(conv6_1)
+        flow6_up = self.flow6_up(flow6)
+        deconv5 = self.deconv5(conv6_1)
+
+        concat5 = torch.cat((conv5_1, deconv5, flow6_up), 1)
+        flow5 = self.flow5(concat5)
+        flow5_up = self.flow5_up(flow5)
+        deconv4 = self.deconv4(concat5)
+
+        concat4 = torch.cat((conv4_1, deconv4, flow5_up), 1)
+        flow4 = self.flow4(concat4)
+        flow4_up = self.flow4_up(flow4)
+        deconv3 = self.deconv3(concat4)
+
+        concat3 = torch.cat((conv3_1, deconv3, flow4_up), 1)
+        flow3 = self.flow3(concat3)
+        flow3_up = self.flow3_up(flow3)
+        deconv2 = self.deconv2(concat3)
+
+        concat2 = torch.cat((conv2, deconv2, flow3_up), 1)
+        flow2 = self.flow2(concat2)
+        flow2_up = self.flow2_up(flow2)
+        deconv1 = self.deconv1(concat2)
+
+        concat1 = torch.cat((conv1, deconv1, flow2_up), 1)
+        flow1 = self.flow1(concat1)
+        flow1_up = self.flow1_up(flow1)
+        deconv0 = self.deconv0(concat1)
+
+        concat0 = torch.cat((input_img2_HR, deconv0, flow1_up), 1)
+        concat0_conv1 = self.concat0_conv1(concat0)
+        concat0_conv2 = self.concat0_conv2(concat0_conv1)
+        flow_12 = self.flow_12(concat0_conv2)
+
+        return [flow_12, flow1, flow2, flow3]
