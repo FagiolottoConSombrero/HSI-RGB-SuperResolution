@@ -3,57 +3,47 @@ from mst import *
 import os
 from PIL import Image
 import tifffile as tiff
+import cv2
 
 
 if __name__ == '__main__':
     # Percorsi delle cartelle
-    input_folder = "/home/ubuntu/Flowers/flowers_hsi/"
+    input_folder = "/home/ubuntu/Flowers/flowers_hsi/"  # Cartella con gli HSI HR (TIFF)
+    output_folder = "/home/ubuntu/Flowers/flowers_hsi_LR/"  # Cartella per le versioni LR
 
-    # Controlla se è disponibile la GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Utilizzo del dispositivo: {device}")
+    # Creazione della cartella di output se non esiste
+    os.makedirs(output_folder, exist_ok=True)
 
-    # Carica il modello MST_Plus_Plus sulla GPU (se disponibile)
-    model = MST_Plus_Plus().to(device)
-    checkpoint = torch.load('/home/ubuntu/HSI-RGB-SuperResolution/model_weights/mst_plus_plus.pth',
-                            map_location=device)
-    model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
-    model.eval()  # Modalità valutazione
+    # Ottieni la lista delle immagini TIFF nella cartella di input
+    image_files = [f for f in os.listdir(input_folder) if f.lower().endswith('.tiff') and not f.startswith("._")]
 
-    # Ottieni la lista delle immagini nella cartella di input, escludendo file che iniziano con "._"
-    image_files = [f for f in os.listdir(input_folder)
-                   if f.lower().endswith(('.png', '.jpg', '.jpeg', '.tiff', '.bmp')) and not f.startswith("._")]
+    # Parametri del filtro Gaussiano
+    kernel_size = (8, 8)  # µ = 8
+    sigma = 3  # σ = 3
 
     # Processa ogni immagine
     for image_file in image_files:
+        print(f"Processing: {image_file}")
 
-        # Carica l'immagine
+        # Carica l'immagine HSI multi-canale
         img_path = os.path.join(input_folder, image_file)
-        img = Image.open(img_path).convert('RGB')  # Carica immagine e converte in RGB
+        hsi = tiff.imread(img_path).astype(np.float32)  # Carica in float32 per evitare perdita di precisione
 
-        # Converti in array NumPy e poi in tensore PyTorch
-        img_np = np.array(img)
-        img_tensor = torch.from_numpy(img_np).float().permute(2, 0, 1).unsqueeze(0) / 255.0  # Normalizza tra 0 e 1
+        # Applica il blur gaussiano a ogni canale spettrale
+        hsi_blurred = np.zeros_like(hsi)
+        for i in range(hsi.shape[2]):  # Per ogni banda spettrale
+            hsi_blurred[:, :, i] = cv2.GaussianBlur(hsi[:, :, i], kernel_size, sigma)
 
-        # Sposta il tensore sulla GPU
-        img_tensor = img_tensor.to(device)
+        # Downsampling x4 usando interpolazione bilineare (puoi anche provare bicubica)
+        hsi_LR = cv2.resize(hsi_blurred, (hsi.shape[1] // 4, hsi.shape[0] // 4), interpolation=cv2.INTER_LINEAR)
 
-        # Genera l'immagine HSI con il modello sulla GPU
-        with torch.no_grad():
-            hsi = model(img_tensor)  # Output del modello (potenzialmente con più canali)
+        # Salva l'immagine ridotta nella nuova cartella
+        output_path = os.path.join(output_folder, image_file)
+        tiff.imwrite(output_path, hsi_LR.astype(np.uint8))  # Converti in uint8 per il salvataggio
 
-        # Riporta l'output sulla CPU
-        hsi_np = (hsi.squeeze(0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
+        print(f"Salvato LR HSI: {output_path}")
 
-        # Percorso per il file TIFF
-        tiff_path = img_path.replace('.png', '.tiff')
-
-        # Salva l'immagine HSI in formato TIFF multi-canale
-        tiff.imwrite(tiff_path, hsi_np)
-
-        print(f"Immagine HSI salvata in TIFF: {tiff_path}")
-
-    print("Elaborazione completata per tutte le immagini.")
+    print("Tutte le immagini LR HSI sono state generate!")
 
 
 
