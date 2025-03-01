@@ -11,7 +11,7 @@ from PIL import Image
 
 if __name__ == '__main__':
     # Percorsi delle cartelle
-    input_folder = "/Volumes/Lexar/Flowers/flowers_hsi/"
+    input_folder = "/home/ubuntu/Flowers/flowers_hsi/"
 
     # Controlla se è disponibile la GPU
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # Carica il modello MST_Plus_Plus sulla GPU (se disponibile)
     model = MST_Plus_Plus().to(device)
-    checkpoint = torch.load('/Users/kolyszko/PycharmProjects/HSI-RgbSR/model_weights/mst_plus_plus.pth',
+    checkpoint = torch.load('/home/ubuntu/HSI-RGB-SuperResolution/model_weights/mst_plus_plus.pth',
                             map_location=device)
     model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
     model.eval()  # Modalità valutazione
