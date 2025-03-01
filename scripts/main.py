@@ -2,6 +2,7 @@ import numpy as np
 from mst import *
 import os
 from PIL import Image
+import tifffile as tiff
 
 
 if __name__ == '__main__':
@@ -25,7 +26,7 @@ if __name__ == '__main__':
 
     # Processa ogni immagine
     for image_file in image_files:
-        print(image_file)
+
         # Carica l'immagine
         img_path = os.path.join(input_folder, image_file)
         img = Image.open(img_path).convert('RGB')  # Carica immagine e converte in RGB
@@ -39,16 +40,18 @@ if __name__ == '__main__':
 
         # Genera l'immagine HSI con il modello sulla GPU
         with torch.no_grad():
-            hsi = model(img_tensor)  # Output del modello
+            hsi = model(img_tensor)  # Output del modello (potenzialmente con più canali)
 
-        # Riporta l'output sulla CPU e lo converte in immagine
-        hsi_np = (hsi.squeeze(0).permute(1, 2, 0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
-        hsi_img = Image.fromarray(hsi_np)  # Converti in immagine PIL
+        # Riporta l'output sulla CPU
+        hsi_np = (hsi.squeeze(0).cpu().numpy() * 255).clip(0, 255).astype(np.uint8)
 
-        # Sovrascrive il file originale
-        hsi_img.save(img_path)
+        # Percorso per il file TIFF
+        tiff_path = img_path.replace('.png', '.tiff')
 
-        print(f"Immagine elaborata e salvata: {img_path}")
+        # Salva l'immagine HSI in formato TIFF multi-canale
+        tiff.imwrite(tiff_path, hsi_np)
+
+        print(f"Immagine HSI salvata in TIFF: {tiff_path}")
 
     print("Elaborazione completata per tutte le immagini.")
 
