@@ -18,7 +18,7 @@ print(f"Utilizzo del dispositivo: {device}")
 
 # Carica il modello MST_Plus_Plus sulla GPU (se disponibile)
 model = MST_Plus_Plus().to(device)
-checkpoint = torch.load('/home/ubuntu/HSI-RGB-SuperResolution/model_weights/model_weights/mst_plus_plus.pth',
+checkpoint = torch.load('/home/ubuntu/HSI-RGB-SuperResolution/model_weights/mst_plus_plus.pth',
                         map_location=device)
 model.load_state_dict({k.replace('module.', ''): v for k, v in checkpoint['state_dict'].items()}, strict=True)
 model.eval()  # Modalità valutazione
