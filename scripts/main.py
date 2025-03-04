@@ -1,6 +1,6 @@
 import argparse
-from utils.utils import *
-from utils.dataset import ImageDataset
+from ..utils.utils import *
+from ..utils.dataset import ImageDataset
 from torch.utils.data import DataLoader
 
 parser = argparse.ArgumentParser(description='Super Resolution Color Guided')
