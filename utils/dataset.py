@@ -6,16 +6,10 @@ import tifffile as tiff
 
 class ImageDataset(Dataset):
     def __init__(self, image_paths='/home/ubuntu/Flowers/', transform=None):
-        """
-        Dataset per caricare immagini HSI e RGB.
-
-        :param image_paths: Percorso principale dei dati
-        :param transform: Trasformazioni da applicare alle immagini (es. resize, normalizzazione)
-        """
         self.image_paths = image_paths
         self.transform = transform
 
-        # Percorsi dei dataset
+        # Percorsi delle cartelle
         self.lr_hsi = os.path.join(self.image_paths, 'flowers_hsi_upsampled/')
         self.hr_rgb = os.path.join(self.image_paths, 'flowers_rgb/')
         self.lr_rgb = os.path.join(self.image_paths, 'flowers_hsi_rgb/')
@@ -26,6 +20,25 @@ class ImageDataset(Dataset):
         self.hr_hsi_files = sorted([f for f in os.listdir(self.hr_hsi) if f.endswith('.tiff')])
         self.lr_rgb_files = sorted([f for f in os.listdir(self.lr_rgb) if f.endswith('.png')])
         self.hr_rgb_files = sorted([f for f in os.listdir(self.hr_rgb) if f.endswith('.png')])
+
+        # Stampa di debug per verificare i file trovati
+        print(f"📂 Cartella LR HSI: {self.lr_hsi} - {len(self.lr_hsi_files)} file trovati")
+        print(f"📂 Cartella HR HSI: {self.hr_hsi} - {len(self.hr_hsi_files)} file trovati")
+        print(f"📂 Cartella LR RGB: {self.lr_rgb} - {len(self.lr_rgb_files)} file trovati")
+        print(f"📂 Cartella HR RGB: {self.hr_rgb} - {len(self.hr_rgb_files)} file trovati")
+
+        # Se una lista è vuota, solleva un errore
+        if not self.lr_hsi_files:
+            raise ValueError(f"❌ Errore: Nessun file trovato nella cartella {self.lr_hsi}")
+
+        if not self.hr_hsi_files:
+            raise ValueError(f"❌ Errore: Nessun file trovato nella cartella {self.hr_hsi}")
+
+        if not self.lr_rgb_files:
+            raise ValueError(f"❌ Errore: Nessun file trovato nella cartella {self.lr_rgb}")
+
+        if not self.hr_rgb_files:
+            raise ValueError(f"❌ Errore: Nessun file trovato nella cartella {self.hr_rgb}")
 
     def __len__(self):
         return len(self.lr_hsi_files)
