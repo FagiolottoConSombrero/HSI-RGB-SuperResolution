@@ -5,7 +5,7 @@ import cv2
 from PIL import Image
 from mst import *
 
-input_folder = "/home/ubuntu/Flowers/flowers_hsi/"  # HSI originale (HR)
+input_folder = "/home/ubuntu/Flowers/flowers_hsi_mst/"  # HSI originale (HR)
 output_folder_LR = "/home/ubuntu/Flowers/flowers_hsi_LR/"  # HSI ridotto
 output_folder_upsampled = "/home/ubuntu/Flowers/flowers_hsi_upsampled/"  # HSI riportato a HR
 output_folder_rgb = "/home/ubuntu/Flowers/flowers_hsi_rgb/"  # RGB finale
