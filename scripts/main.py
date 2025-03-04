@@ -24,17 +24,12 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=opt.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=False)
 
-    # Prendi un batch dal DataLoader
     batch = next(iter(train_loader))
 
-    # Estrai le 4 immagini dal batch
-    lr_hsi, hr_hsi, lr_rgb, hr_rgb = batch
-
-    # Stampa le shape delle immagini
-    print(f"Shape di LR_HSI: {lr_hsi.shape}")
-    print(f"Shape di HR_HSI: {hr_hsi.shape}")
-    print(f"Shape di LR_RGB: {lr_rgb.shape}")
-    print(f"Shape di HR_RGB: {hr_rgb.shape}")
+    # Se il DataLoader restituisce una tupla (più immagini per campione)
+    if isinstance(batch, tuple) or isinstance(batch, list):
+        for i, img in enumerate(batch):
+            print(f"🔍 Shape dell'immagine {i + 1}: {img.shape}")
 
 
 if __name__ == '__main__':
