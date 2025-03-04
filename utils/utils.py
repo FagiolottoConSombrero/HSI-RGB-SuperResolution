@@ -46,7 +46,7 @@ def check_early_stopping(val_loss, model, early_stopping, epoch, best_model_path
     return False  # Continuare il training
 
 
-def split_dataset(dataset, val_size=0.1, test_size=0.05, random_state=42):
+def split_dataset(dataset, val_size=0.05, test_size=0.02, random_state=42):
     train_size = int((1 - val_size - test_size) * len(dataset))
     val_size = int(val_size * len(dataset))
     test_size = len(dataset) - train_size - val_size  # Il resto per il test
