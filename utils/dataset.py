@@ -1,6 +1,7 @@
 import os
 from torch.utils.data import Dataset
 from PIL import Image
+import tifffile as tiff
 
 
 class ImageDataset(Dataset):
@@ -47,8 +48,8 @@ class ImageDataset(Dataset):
         hr_rgb_path = os.path.join(self.hr_rgb, self.hr_rgb_files[index])
 
         # Caricare immagini HSI (TIFF)
-        lr_hsi = Image.open(lr_hsi_path)
-        hr_hsi = Image.open(hr_hsi_path)
+        lr_hsi = tiff.imread(lr_hsi_path)
+        hr_hsi = tiff.imread(hr_hsi_path)
 
         # Caricare immagini RGB (PNG)
         lr_rgb = Image.open(lr_rgb_path).convert("RGB")  # Converte in RGB
