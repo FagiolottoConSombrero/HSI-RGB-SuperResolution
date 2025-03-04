@@ -2,8 +2,6 @@ import numpy as np
 import os
 import tifffile as tiff
 import cv2
-from PIL import Image
-from mst import *
 
 input_folder = "/home/ubuntu/Flowers/flowers_hsi_mst/"  # HSI originale (HR)
 output_folder_LR = "/home/ubuntu/Flowers/flowers_hsi_LR/"  # HSI ridotto
