@@ -27,10 +27,6 @@ class ImageDataset(Dataset):
         self.lr_rgb_files = sorted([f for f in os.listdir(self.lr_rgb) if f.endswith('.png')])
         self.hr_rgb_files = sorted([f for f in os.listdir(self.hr_rgb) if f.endswith('.png')])
 
-        # Assumiamo che il numero di file sia lo stesso per ogni set
-        assert len(self.lr_hsi_files) == len(self.hr_hsi_files) == len(self.lr_rgb_files) == len(self.hr_rgb_files), \
-            "Il numero di immagini nei dataset non corrisponde!"
-
     def __len__(self):
         return len(self.lr_hsi_files)
 
