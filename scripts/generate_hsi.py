@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import tifffile as tiff
 from PIL import Image
-from mst import *
+from scripts.mst import *
 
 # Definizione delle cartelle
 input_folder = "/home/ubuntu/Flowers/flowers_hsi/"
