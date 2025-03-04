@@ -2,6 +2,7 @@ import os
 from torch.utils.data import Dataset
 from PIL import Image
 
+
 class ImageDataset(Dataset):
     def __init__(self, image_paths='/home/ubuntu/Flowers/', transform=None):
         """

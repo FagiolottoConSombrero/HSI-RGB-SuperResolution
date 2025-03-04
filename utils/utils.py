@@ -42,3 +42,13 @@ def check_early_stopping(val_loss, model, early_stopping, epoch, best_model_path
             print(f"Early stopping at epoch {epoch} with best val_loss: {early_stopping.best_val:.4f}")
             return True  # Fermare il training
     return False  # Continuare il training
+
+
+def split_dataset(dataset, val_size=0.1, test_size=0.05, random_state=42):
+    train_size = int((1 - val_size - test_size) * len(dataset))
+    val_size = int(val_size * len(dataset))
+    test_size = len(dataset) - train_size - val_size  # Il resto per il test
+
+    train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, val_size, test_size])
+
+    return train_dataset, val_dataset, test_dataset
