@@ -24,9 +24,12 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=opt.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=False)
 
-    print(f"Train size: {len(train_dataset)}")
-    print(f"Validation size: {len(val_dataset)}")
-    print(f"Test size: {len(test_dataset)}")
+    # Prendi un batch di dati
+    batch = next(iter(train_loader))
+
+    # Stampa lo shape delle immagini
+    for i, img in enumerate(batch):
+        print(f"Shape dell'immagine {i + 1}: {img.shape}")
 
 
 if __name__ == '__main__':
