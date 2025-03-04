@@ -18,18 +18,15 @@ def main():
     print(opt)
 
     print("===> Loading data")
-    dataset = ImageDataset(transform=get_transforms())
+    dataset = ImageDataset()
     train_dataset, val_dataset, test_dataset = split_dataset(dataset)
     train_loader = DataLoader(train_dataset, batch_size=opt.batch_size, shuffle=True)
     val_loader = DataLoader(val_dataset, batch_size=opt.batch_size, shuffle=False)
     test_loader = DataLoader(test_dataset, batch_size=opt.batch_size, shuffle=False)
 
-    # Prendi un batch di dati
-    batch = next(iter(train_loader))
-
-    # Stampa lo shape delle immagini
-    for i, img in enumerate(batch):
-        print(f"Shape dell'immagine {i + 1}: {img.shape}")
+    print(f"Train size: {len(train_dataset)}")
+    print(f"Validation size: {len(val_dataset)}")
+    print(f"Test size: {len(test_dataset)}")
 
 
 if __name__ == '__main__':
