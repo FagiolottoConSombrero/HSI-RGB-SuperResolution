@@ -1,7 +1,4 @@
 import argparse
-import torch
-from models.model import *
-from utils.engine import *
 from utils.utils import *
 from utils.dataset import ImageDataset
 from torch.utils.data import DataLoader
