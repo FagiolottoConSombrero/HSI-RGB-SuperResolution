@@ -10,7 +10,7 @@ output_folder_LR = "/home/ubuntu/Flowers/flowers_hsi_LR/"  # HSI ridotto
 output_folder_upsampled = "/home/ubuntu/Flowers/flowers_hsi_upsampled/"  # HSI riportato a HR
 output_folder_rgb = "/home/ubuntu/Flowers/flowers_hsi_rgb/"  # RGB finale
 
-'''# Controlla se è disponibile la GPU
+# Controlla se è disponibile la GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Utilizzo del dispositivo: {device}")
 
@@ -51,7 +51,7 @@ for image_file in image_files:
 
     print(f"Immagine elaborata e salvata: {img_path}")
 
-print("Elaborazione completata per tutte le immagini.")'''
+print("Elaborazione completata per tutte le immagini.")
 
 # Crea le cartelle di output se non esistono
 os.makedirs(output_folder_LR, exist_ok=True)

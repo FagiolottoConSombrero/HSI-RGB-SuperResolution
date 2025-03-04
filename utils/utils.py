@@ -1,4 +1,5 @@
 import torch
+from torchvision import transforms as v2
 
 
 class EarlyStopping():
@@ -54,3 +55,17 @@ def split_dataset(dataset, val_size=0.05, test_size=0.02, random_state=42):
     train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, val_size, test_size])
 
     return train_dataset, val_dataset, test_dataset
+
+
+def scale_0_1(x):
+    """Scalare i valori dell'immagine da [0, 255] a [0, 1]."""
+    if not isinstance(x, torch.Tensor):
+        x = torch.tensor(x, dtype=torch.float32)
+    return x / 255.0
+
+def get_transforms():
+    """Pipeline di trasformazione normalizzando i valori."""
+    return v2.Compose([
+        v2.ToTensor(),  # Converte direttamente da NumPy/PIL a Tensor con valori [0,1]
+        v2.Lambda(scale_0_1),  # Opzionale, già fatto da ToTensor()
+    ])

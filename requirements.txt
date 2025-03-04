@@ -7,3 +7,4 @@ opencv-python~=4.11.0.86
 pillow~=11.1.0
 tifffile~=2024.8.30
 tqdm~=4.67.1
+torchvision~=0.21.0
