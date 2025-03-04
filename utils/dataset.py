@@ -22,8 +22,8 @@ class ImageDataset(Dataset):
         self.hr_hsi = os.path.join(self.image_paths, 'flowers_hsi/')
 
         # Ottenere i file in ogni cartella
-        self.lr_hsi_files = sorted([f for f in os.listdir(self.lr_hsi) if f.endswith(('.tif', '.tiff'))])
-        self.hr_hsi_files = sorted([f for f in os.listdir(self.hr_hsi) if f.endswith(('.tif', '.tiff'))])
+        self.lr_hsi_files = sorted([f for f in os.listdir(self.lr_hsi) if f.endswith('.tiff')])
+        self.hr_hsi_files = sorted([f for f in os.listdir(self.hr_hsi) if f.endswith('.tiff')])
         self.lr_rgb_files = sorted([f for f in os.listdir(self.lr_rgb) if f.endswith('.png')])
         self.hr_rgb_files = sorted([f for f in os.listdir(self.hr_rgb) if f.endswith('.png')])
 
